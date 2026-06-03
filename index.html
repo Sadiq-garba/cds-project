@@ -1,0 +1,571 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <title>Lokoja Magazine CDS Portal</title>
+    l
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: Arial, sans-serif;
+      }
+
+      body {
+        background: #f8fafc;
+        padding: 30px;
+      }
+
+      .container {
+        max-width: 900px;
+        margin: auto;
+      }
+
+      .card {
+        background: white;
+        padding: 30px;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+      }
+
+      input,
+      select {
+        width: 100%;
+        padding: 14px;
+        margin-bottom: 15px;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+      }
+
+      button {
+        width: 100%;
+        padding: 14px;
+        border: none;
+        border-radius: 10px;
+        background: #111827;
+        color: white;
+        cursor: pointer;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+
+      th,
+      td {
+        padding: 10px;
+        border: 1px solid #eee;
+      }
+
+      #adminSection,
+      #loginSection {
+        display: none;
+      }
+
+      .footer-link {
+        text-align: center;
+        margin-top: 18px;
+        color: #2563eb;
+        cursor: pointer;
+      }
+
+      #preview {
+        width: 120px;
+        height: 120px;
+        object-fit: cover;
+        display: none;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <!-- FORM -->
+      <div class="card" id="registrationSection">
+        <h2 style="margin-bottom: 10px">E-Magazine CDS Registration</h2>
+
+        <input id="fullName" placeholder="Full Name" />
+
+        <input id="phone_number" placeholder="Phone number e.g 07013950375" />
+
+        <input id="state_code" placeholder="State Code e.g KG/26A/0899" />
+
+        <select id="batch">
+          <option value="">Select Batch</option>
+
+          <option>A1</option>
+          <option>A2</option>
+          <option>B1</option>
+          <option>B2</option>
+          <option>C</option>
+        </select>
+
+        <select id="cdsGroup">
+          <option value="">Select CDS Group</option>
+
+          <option>WADA</option>
+          <option>DEEP</option>
+          <option>SDG</option>
+          <option>ANTI CORRUPTION</option>
+          <option>NIESAT</option>
+          <option>Financial inclusion</option>
+          <option>Reproductive health</option>
+          <option>LEGAL AID</option>
+          <option>EPS</option>
+          <option>FRSC</option>
+          <option>EPS OBAJANA</option>
+          <option>FOOTBALL CDS</option>
+          <option>VOLLEYBALL CDS</option>
+          <option>MEDICAL CDS</option>
+          <option>GOTNI CDS</option>
+          <option>SERVICE DELIVERY</option>
+          <option>FIRE SERVICE</option>
+          <option>NEMA CDS</option>
+          <option>AGRO ALLIES</option>
+          <option>FRSC KABBA</option>
+          <option>CHARITY AND GENDER CDS</option>
+          <option>EDITORIAL CDS</option>
+          <option>EDUCATIONAL CDS</option>
+          <option>CULTURE AND TOURISM</option>
+        </select>
+
+        <input type="file" id="image" />
+        <img id="preview" />
+
+        <button id="submitBtn">Submit Registration</button>
+
+        <div class="footer-link" id="goAdmin">Admin access</div>
+      </div>
+
+      <!-- LOGIN -->
+      <div class="card" id="loginSection">
+        <h2 style="margin-bottom: 10px">Admin Login</h2>
+
+        <input id="adminPassword" type="password" placeholder="Password" />
+
+        <button id="loginBtn">Login</button>
+
+        <div class="footer-link" id="backBtn">Back</div>
+      </div>
+
+      <!-- ADMIN -->
+      <div class="card" id="adminSection">
+        <h2 style="margin-bottom: 10px">Admin Dashboard</h2>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 15px">
+          <button id="downloadBtn" style="flex: 1">Download PDF</button>
+          <button id="logoutBtn" style="flex: 1; background: #dc2626">
+            Logout
+          </button>
+          <button id="zipBtn" style="flex: 1; background: #16a34a">
+            Download CDS Images (ZIP)
+          </button>
+        </div>
+
+        <div id="cdsList"></div>
+
+        <hr />
+
+        <table>
+          <!-- <thead>
+            <tr>
+              <th>Name</th>
+              <th>Batch</th>
+              <th>Group</th>
+              <th>Image</th>
+            </tr>
+          </thead> -->
+
+          <tbody id="tableBody"></tbody>
+          <div
+            id="pagination"
+            style="margin-top: 15px; text-align: center"
+          ></div>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      const SUPABASE_URL = "https://yiosbqaneavohaogmipb.supabase.co";
+      const SUPABASE_KEY =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlpb3NicWFuZWF2b2hhb2dtaXBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MjY4MDEsImV4cCI6MjA5NjAwMjgwMX0.Tmb5TUSz9DDLHFssGhwtzWIm5CASVaq2rGqJBOswsJg";
+
+      /* ✅ ONLY ONE DECLARATION (FIX FOR YOUR ERROR) */
+      const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      let allData = [];
+      let visibleData = [];
+      let currentPage = 1;
+      const pageSize = 20; // you can change to 12, 24, etc.
+
+      /* IMAGE PREVIEW */
+      document.getElementById("image").addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = document.getElementById("preview");
+          img.src = e.target.result;
+          img.style.display = "block";
+        };
+        reader.readAsDataURL(file);
+      });
+
+      /* SUBMIT */
+      document
+        .getElementById("submitBtn")
+        .addEventListener("click", async () => {
+          const fullName = document.getElementById("fullName").value;
+          const batch = document.getElementById("batch").value;
+          const cdsGroup = document.getElementById("cdsGroup").value;
+          const phoneNumber = document.getElementById("phone_number").value;
+          const stateCode = document.getElementById("state_code").value;
+          const file = image.files[0];
+
+          if (
+            !fullName ||
+            !batch ||
+            !cdsGroup ||
+            !file ||
+            !phoneNumber ||
+            !stateCode
+          ) {
+            alert("Fill all fields");
+            return;
+          }
+
+          const sanitize = (str) => str.replace(/[^a-zA-Z0-9]/g, "_"); // remove unsafe characters
+
+          const fileExt = file.name.split(".").pop();
+
+          // build safe filename
+          const fileName = `${sanitize(fullName)}_${sanitize(batch)}_${sanitize(stateCode)}_${sanitize(phoneNumber)}.${fileExt}`;
+
+          await client.storage.from("passport-images").upload(fileName, file);
+
+          const { data } = client.storage
+            .from("passport-images")
+            .getPublicUrl(fileName);
+
+          await client.from("registrations").insert([
+            {
+              full_name: fullName,
+
+              batch: batch,
+              cds_group: cdsGroup,
+              image_url: data.publicUrl,
+              phone_number: phoneNumber,
+              state_code: stateCode,
+            },
+          ]);
+
+          alert("Success");
+        });
+
+      /* NAV */
+      document.getElementById("goAdmin").onclick = () => {
+        registrationSection.style.display = "none";
+        loginSection.style.display = "block";
+      };
+
+      document.getElementById("backBtn").onclick = () => {
+        loginSection.style.display = "none";
+        registrationSection.style.display = "block";
+      };
+
+      /* LOGIN */
+      document.getElementById("loginBtn").onclick = async () => {
+        //const email = adminEmail.value;
+        const pass = adminPassword.value;
+
+        if (pass !== "clo2026") {
+          alert("Fill all fields");
+          return;
+        }
+        loginSection.style.display = "none";
+        adminSection.style.display = "block";
+
+        loadRecords();
+      };
+
+      function filterByCDS(cds) {
+        const filtered = allData.filter((item) => item.cds_group === cds);
+
+        visibleData = filtered;
+        currentPage = 1; // reset page
+
+        renderTable();
+        renderPagination();
+      }
+      function renderTable() {
+        const start = (currentPage - 1) * pageSize;
+        const end = start + pageSize;
+
+        const pageData = visibleData.slice(start, end);
+
+        document.getElementById("tableBody").innerHTML = `
+    <div style="
+      display:grid;
+      grid-template-columns:repeat(4, 1fr);
+      gap:15px;
+      margin-top:20px;
+    ">
+      ${pageData
+        .map(
+          (row) => `
+        <div style="
+          border:1px solid #ddd;
+          border-radius:10px;
+          padding:10px;
+          text-align:center;
+          background:white;
+        ">
+          <img 
+            src="${row.image_url}" 
+            loading="lazy"
+            decoding="async"
+            style="width:100%; height:160px; object-fit:cover; border-radius:8px;"
+          />
+
+          <div style="margin-top:8px; font-weight:bold;">
+            ${row.full_name}
+          </div>
+
+          <div style="font-size:12px;">
+            Batch: ${row.batch}
+          </div>
+
+          <div style="font-size:12px;">
+            CDS: ${row.cds_group}
+          </div>
+
+          ${
+            row.state_code
+              ? `<div style="font-size:12px;">Matric: ${row.state_code}</div>`
+              : ""
+          }
+        </div>
+      `,
+        )
+        .join("")}
+    </div>
+  `;
+      }
+      document.getElementById("zipBtn").onclick = async function () {
+        const zip = new JSZip();
+        const folderName = this.dataset.cds || "cds";
+
+        const folder = zip.folder(folderName);
+
+        for (let i = 0; i < visibleData.length; i++) {
+          const row = visibleData[i];
+
+          try {
+            const response = await fetch(row.image_url);
+            const blob = await response.blob();
+
+            const urlParts = row.image_url.split("?");
+            const path = urlParts[0];
+
+            const ext = path.substring(path.lastIndexOf(".") + 1);
+
+            const fileName = `${row.state_code || "NO_CODE"}_${row.phone_number || i}.${ext}`;
+
+            folder.file(fileName, blob);
+          } catch (err) {
+            console.log("failed image:", row.image_url);
+          }
+        }
+
+        const content = await zip.generateAsync({ type: "blob" });
+
+        saveAs(content, `${folderName}.zip`);
+      };
+
+      function renderPagination() {
+        const totalPages = Math.ceil(visibleData.length / pageSize);
+
+        let buttons = "";
+
+        for (let i = 1; i <= totalPages; i++) {
+          buttons += `
+      <button onclick="goToPage(${i})"
+        style="
+          margin:3px;
+          padding:8px 12px;
+          width:auto;
+          background:${i === currentPage ? "#16a34a" : "#111827"};
+        ">
+        ${i}
+      </button>
+    `;
+        }
+
+        document.getElementById("pagination").innerHTML = buttons;
+      }
+
+      function goToPage(page) {
+        currentPage = page;
+        renderTable();
+        renderPagination();
+      }
+      /* LOAD */
+      async function loadRecords() {
+        const { data, error } = await client
+          .from("registrations")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.log(error);
+          return;
+        }
+
+        allData = data;
+
+        const cdsGroups = [...new Set(data.map((item) => item.cds_group))];
+
+        document.getElementById("cdsList").innerHTML = cdsGroups
+          .map(
+            (cds) => `
+        <button onclick="filterByCDS('${cds}')" style="margin:5px;padding:10px;width:auto;">
+          ${cds}
+        </button>
+      `,
+          )
+          .join("");
+
+        renderTable(data);
+      }
+      async function loadRecords() {
+        const { data, error } = await client
+          .from("registrations")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.log(error);
+          return;
+        }
+
+        allData = data;
+
+        const cdsGroups = [...new Set(data.map((item) => item.cds_group))];
+
+        document.getElementById("cdsList").innerHTML = cdsGroups
+          .map(
+            (cds) => `
+        <button onclick="filterByCDS('${cds}')" 
+          style="margin:5px;padding:10px;width:auto;">
+          ${cds}
+        </button>
+      `,
+          )
+          .join("");
+
+        renderTable(data);
+        renderPagination();
+      }
+      function toBase64(url) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+
+          img.onload = function () {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+
+            resolve(canvas.toDataURL("image/jpeg"));
+          };
+
+          img.onerror = reject;
+          img.src = url;
+        });
+      }
+      /* PDF */
+      downloadBtn.onclick = async () => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        const rows = await Promise.all(
+          visibleData.map(async (row) => {
+            let img = "";
+
+            try {
+              img = await toBase64(row.image_url);
+            } catch (e) {
+              img = "";
+            }
+
+            return [row.full_name, row.batch, row.cds_group, img];
+          }),
+        );
+
+        doc.autoTable({
+          head: [["Name", "Batch", "Group", "Image"]],
+          body: rows,
+
+          // 🔥 REMOVE ALL COLOR/STYLING
+          styles: {
+            fontSize: 10,
+            textColor: 0, // black text
+            lineColor: 0, // black borders
+            lineWidth: 0.1,
+            fillColor: false, // no background color
+          },
+
+          headStyles: {
+            fillColor: false, // no header color
+            textColor: 0,
+          },
+
+          columnStyles: {
+            3: { cellWidth: 25 }, // image column
+          },
+
+          didDrawCell: function (data) {
+            if (
+              data.section === "body" &&
+              data.column.index === 3 &&
+              data.cell.raw
+            ) {
+              doc.addImage(
+                data.cell.raw,
+                "JPEG",
+                data.cell.x + 2,
+                data.cell.y + 2,
+                15,
+                15,
+              );
+            }
+          },
+        });
+
+        doc.save("cds-report.pdf");
+      };
+
+      /* LOGOUT */
+      logoutBtn.onclick = async () => {
+        await client.auth.signOut();
+        location.reload();
+      };
+    </script>
+  </body>
+</html>
