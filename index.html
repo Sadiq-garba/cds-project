@@ -385,7 +385,16 @@
 
             const ext = path.substring(path.lastIndexOf(".") + 1);
 
-            const fileName = `${row.state_code || "NO_CODE"}_${row.phone_number || i}.${ext}`;
+            const sanitize = (str) =>
+            String(str || "").replace(/[^a-zA-Z0-9]/g, "_");
+
+           const fileName =
+               `${sanitize(row.full_name)}_` +
+                `${sanitize(row.batch)}_` +
+                `${sanitize(row.state_code)}_` +
+                `${sanitize(row.phone_number)}.${ext}`;
+
+            //const fileName = `${row.state_code || "NO_CODE"}_${row.phone_number || i}.${ext}`;
 
             folder.file(fileName, blob);
           } catch (err) {
