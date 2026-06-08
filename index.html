@@ -372,36 +372,38 @@
         const folderName = this.dataset.cds || "cds";
 
         const folder = zip.folder(folderName);
+const sanitize = (str) =>
+  String(str || "").replace(/[^a-zA-Z0-9]/g, "_");
 
-        for (let i = 0; i < visibleData.length; i++) {
-          const row = visibleData[i];
+for (let i = 0; i < visibleData.length; i++) {
+  const row = visibleData[i];
 
-          try {
-            const response = await fetch(row.image_url);
-            const blob = await response.blob();
+  try {
+    const response = await fetch(row.image_url);
+    const blob = await response.blob();
 
-            const urlParts = row.image_url.split("?");
-            const path = urlParts[0];
+    const urlParts = row.image_url.split("?");
+    const path = urlParts[0];
+    const ext = path.substring(path.lastIndexOf(".") + 1);
 
-            const ext = path.substring(path.lastIndexOf(".") + 1);
+    // 🔥 EXTRACT 25B FROM KG/25B/0235
+    const batchMatch = (row.state_code || "").match(/25[A-Z]/i);
+    const batchFolder = batchMatch ? batchMatch[0].toUpperCase() : "OTHER";
 
-            const sanitize = (str) =>
-            String(str || "").replace(/[^a-zA-Z0-9]/g, "_");
+    const fileName =
+      `${sanitize(row.full_name)}_` +
+      `${sanitize(row.batch)}_` +
+      `${sanitize(row.state_code)}_` +
+      `${sanitize(row.phone_number)}.${ext}`;
 
-           const fileName =
-               `${sanitize(row.full_name)}_` +
-                `${sanitize(row.batch)}_` +
-                `${sanitize(row.state_code)}_` +
-                `${sanitize(row.phone_number)}.${ext}`;
+    // 🔥 THIS IS THE KEY CHANGE (FOLDER STRUCTURE)
+    const filePath = `cds/cds/${batchFolder}/${fileName}`;
 
-            //const fileName = `${row.state_code || "NO_CODE"}_${row.phone_number || i}.${ext}`;
-
-            folder.file(fileName, blob);
-          } catch (err) {
-            console.log("failed image:", row.image_url);
-          }
-        }
-
+    zip.file(filePath, blob);
+  } catch (err) {
+    console.log("failed image:", row.image_url);
+  }
+}
         const content = await zip.generateAsync({ type: "blob" });
 
         saveAs(content, `${folderName}.zip`);
